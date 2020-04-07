@@ -1,6 +1,6 @@
 import * as cp from 'child_process'
 import * as os from 'os'
-import { AutoLanguageClient, ActiveServer } from 'atom-languageclient'
+import { AutoLanguageClient, ActiveServer, ConnectionType } from 'atom-languageclient'
 import * as path from 'path'
 import { CompositeDisposable, FilesystemChangeEvent, TextEditor, Point, TextBuffer, Range } from 'atom'
 import * as languageServer from 'ocaml-language-server'
@@ -53,7 +53,7 @@ class ReasonMLLanguageClient extends AutoLanguageClient {
   getServerName () {
     switch (this.config.server.tool) {
       case 'rls': return 'reason'
-      case 'ols': return 'ocamlmerlin'
+      case 'ols': return 'ocaml-lsp'
       default: return 'reason'
     }
   }
@@ -88,20 +88,7 @@ class ReasonMLLanguageClient extends AutoLanguageClient {
         }
       case 'ols':
         return {
-          reason: {
-            codelens: {
-              enabled: false,
-              unicode: true,
-            },
-            debounce: config.ols.debounce,
-            diagnostics: {
-              tools: config.ols.diagnostics.tools,
-              merlinPerfLogging: false,
-            },
-            format: config.ols.format,
-            path: config.ols.path,
-            server: config.ols.server,
-          },
+          ocaml: {},
         }
       default: throw Error('Invalid language server identifier')
     }
@@ -208,12 +195,10 @@ class ReasonMLLanguageClient extends AutoLanguageClient {
   }
 
   startOls(projectPath: string) {
-    const serverPath = require.resolve('ocaml-language-server/bin/server')
-    return this.spawnChildNode([serverPath, '--node-ipc'], {
-      stdio: [null, null, null, 'ipc'],
+    return Promise.resolve(cp.spawn('esy', ['exec-command', '--include-current-env', 'ocamllsp'], {
       cwd: projectPath,
       env: this.getEnv(),
-    })
+    }))
   }
 
   getRlsBin() {
@@ -234,7 +219,7 @@ class ReasonMLLanguageClient extends AutoLanguageClient {
   }
 
   getConnectionType() {
-    return this.config.server.tool === 'ols' ? 'ipc': 'stdio'
+    return 'stdio' as ConnectionType
   }
 
   postInitialization(server: ActiveServer) {
